@@ -1,0 +1,19 @@
+version: '3'
+services:
+  nodejs_api_instagram:
+    container_name: nodejs_api_instagram
+    image: eladiojunior/nodejs_api_instagram:1.1
+    build: .
+    restart: unless-stopped
+    env_file: .env
+    environment:
+      - MONGO_DB=$MONGO_DB
+      - MONGO_HOSTNAME=$MONGO_HOSTNAME
+      - MONGO_PORT=$MONGO_PORT
+      - MONGO_USERNAME=$MONGO_USERNAME
+      - MONGO_PASSWORD=$MONGO_PASSWORD
+      - AMBIENTE=$AMBIENTE
+      - PORT=$PORT
+    ports:
+      - "8082:8082"
+    command: node server.js

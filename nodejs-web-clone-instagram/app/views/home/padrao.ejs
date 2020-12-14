@@ -1,0 +1,221 @@
+<!DOCTYPE HTML>
+<html lang="pt-br">
+	<head>
+		<meta charset="UTF-8">
+
+		<title>Instagram Clone - WEB</title>
+		
+		<!-- JQuery -->
+		<script src="http://code.jquery.com/jquery-3.1.1.min.js"></script>
+
+		<!-- bootstrap - link cdn -->
+		<link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.6/css/bootstrap.min.css">
+	
+		<!-- incluindo css -->
+		<link href="css/style.css" rel="stylesheet">
+
+		<script>
+			$(document).ready(function(){
+
+				$('#btn_incluir').click(function(){
+					abrir_registro_postagem();
+				});
+
+				$('#btn-cancelar-publicacao').click(function(){
+					carrega_postagens();
+				});
+
+				$('#btn-publicar').click(function(){
+					registrar_postagem();
+				});
+
+				function registrar_postagem() {
+					//criar um FormData
+					var form = new FormData();
+					var arquivo = document.getElementById("arquivo").files[0];
+					var titulo = document.getElementById("titulo").value;
+					form.append("arquivo", arquivo);
+					form.append("titulo", titulo);
+					var xhr = new XMLHttpRequest();
+					xhr.onload = function () {
+						var tag_mensagem = "";
+						var data = $.parseJSON(xhr.responseText);
+						if (data.result === true) {
+							carrega_postagens();
+							tag_mensagem = "<div class='alert alert-success'>"+data.data+"</div>"
+						} else {
+							tag_mensagem = "<div class='alert alert-danger'><ul>#ERROS#</ul></div>"
+							var erros = "";
+							if (Array.isArray(data.erro)) {
+								for (var i=0; i < data.erro.length; i++) {
+									erros += "<li>"+data.erro[i].msg+"</li>";
+								}
+							} else {
+								erros = "<li>"+data.erro+"</li>";
+							}
+							tag_mensagem = tag_mensagem.replaceAll("#ERROS#", erros);
+						}
+						document.getElementById("mensagem").innerHTML = tag_mensagem;
+					};
+					//Fazer o envio do nosso request
+					xhr.open("POST", "http://localhost:8082/api");
+					xhr.send(form);
+				}
+
+				function abrir_registro_postagem() {
+					$('#container_timeline').hide();
+					$('#container_form').show();
+					//Limpar campos
+					document.getElementById("arquivo").files = null;
+					document.getElementById("titulo").value = '';
+					document.getElementById("mensagem").innerHTML = "";
+					document.getElementById("titulo").focus();
+				}
+
+				function carrega_postagens() {
+
+					$('#container_timeline').show();
+					$('#container_form').hide();
+					$("#container_timeline").html("");
+
+					var xhr = new XMLHttpRequest();
+					xhr.onload = function () {
+						if (xhr.status === 200) {
+							var data = $.parseJSON(xhr.responseText);
+							if (data.result === true) {
+								listar_postagens(data.data);
+							}
+						}
+					};
+					xhr.open("GET", "http://localhost:8082/api");
+					xhr.send();
+				}
+				carrega_postagens();
+				function listar_postagens(data) {
+					var publicacao =
+					"<div class='publicacao'>" +
+						"<span class='titulo'>#TITULO#</span>" +
+						"<img class='img-responsive' alt='Imagem do post' src='http://localhost:8082/imagens/#ID#'/>" +
+						"<div class='comentarios'>#COMENTARIOS#</div>" +
+						"<div class='comentar'>" +
+							"<div class='input-group'>" +
+								"<input type='text' class='form-control input_comentario' id='#ID#' placeholder='Adicione seu comentário.'/>" +
+								"<span class='input-group-btn'>" +
+									"<button class='btn btn-primary btn-registrar-comentario' type='button' value='#ID#'>Comentar</button>" +
+								"</span>" +
+							"</div>"
+						"</div>" +
+					"</div>";
+					for (var i=0; i < data.length; i++) {
+						var comentarios = data[i].comentarios;
+						var tagComentarios = "<div class='txt_comentario'><button type='button' class='btn btn-danger btn-xs btn-remover-comentario' value='#ID_COMENTARIO#'>Remover</button> #DH_COMENTARIO# - #TXT_COMENTARIO#</div>";
+						var strComentarios = "Nenhum comentário, seja o primeiro...";
+						if (comentarios !== undefined && comentarios.length > 0) {
+							strComentarios = "";
+							for (var x=0; x < comentarios.length; x++) {
+								strComentarios += tagComentarios
+										.replaceAll("#ID_COMENTARIO#", comentarios[x].id_comentario)
+										.replaceAll("#DH_COMENTARIO#", comentarios[x].datahora_comentario.replace(/T/, ' ').replace(/\..+/, ''))
+										.replaceAll("#TXT_COMENTARIO#", comentarios[x].comentario);
+							}
+						}
+						$("#container_timeline").append(publicacao
+								.replaceAll("#TITULO#", data[i].titulo)
+								.replaceAll("#ID#", data[i]._id)
+								.replaceAll("#COMENTARIOS#", strComentarios));
+					}
+
+					//Ação de comentário.
+					$(".btn-registrar-comentario").click(function (){
+						var id_post = this.value;
+						var comentario = $('#'+id_post).val();
+						//Enviar o comentário...
+						registrar_comentario_postagem(id_post, comentario);
+						$('#'+id_post).val("");
+						$('#'+id_post).focus();
+					});
+					$(".btn-remover-comentario").click(function (){
+						var id_comentario = this.value;
+						remover_comentario_postagem(id_comentario);
+					});
+				}
+
+				function registrar_comentario_postagem(id, comentario) {
+
+					if (comentario === "") {
+						alert("Nenhum comentário informado.");
+						return;
+					}
+
+					var xhr = new XMLHttpRequest();
+					xhr.onload = function () {
+						var data = $.parseJSON(xhr.responseText);
+						if (data.result === true) {
+							carrega_postagens();
+						} else {
+							alert("Erro ao realizar comentário.");
+						}
+					};
+					xhr.open("PUT", "http://localhost:8082/api/" + id);
+					xhr.setRequestHeader("content-type", "application/json");
+					xhr.send(JSON.stringify({"comentario":comentario}));
+				}
+
+				function remover_comentario_postagem(idComentario) {
+
+					var xhr = new XMLHttpRequest();
+					xhr.onload = function () {
+						var data = $.parseJSON(xhr.responseText);
+						if (data.result === true) {
+							carrega_postagens();
+						} else {
+							alert("Erro ao remover comentário.");
+						}
+					};
+					xhr.open("DELETE", "http://localhost:8082/api/" + idComentario);
+					xhr.send();
+				}
+
+			});
+		</script>
+
+	</head>
+
+	<body>
+
+		<nav class="navbar navbar-default">
+			<div class="container">
+				<div class="col-md-12">
+					<div class="container-fluid">
+						<img alt="Instagram Clone - Versão WEB" src="images/logo2.jpg" class="logo2">
+						<img alt="Incluir" src="images/incluir.jpg" class="pull-right btn-incluir" id="btn_incluir">
+					</div>
+				</div>
+			</div>
+		</nav>
+
+		<div class="container">
+			<div class="col-md-2"></div>
+			<div class="col-md-8" id="container_timeline"></div>
+		</div>
+
+		<div class="container" style="display:none" id="container_form">
+			<div class="panel panel-default">
+			<div class="panel-heading"><h4>Publicar uma foto</h4></div>
+			<div class="panel-body">
+				<div class="form-group">
+					<input type="file" name="arquivo" id="arquivo" class="form-control">
+				</div>
+				<div class="form-group">
+					<input type="text" name="titulo" id="titulo" class="form-control" placeholder="Titulo" autocomplete="off">
+				</div>
+				<div class="form-group">
+					<button class="btn btn-success" id="btn-publicar">Publicar</button>
+					<button class="btn btn-danger" id="btn-cancelar-publicacao">Cancelar</button>
+				</div>
+				<div id="mensagem"></div>
+			</div>
+		</div>
+	</body>
+
+</html>
